@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>ShadowTalk</title>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+:root {
+  --bg:        #0b0e13;
+  --surface:   #141820;
+  --surface2:  #1c2230;
+  --border:    rgba(255,255,255,0.06);
+  --text:      #e8edf5;
+  --muted:     rgba(232,237,245,0.45);
+  --dim:       rgba(232,237,245,0.25);
+  --me-bg:     #1a6ef5;
+  --me-dark:   #1458cc;
+  --them-bg:   #1c2230;
+  --green:     #25d366;
+  --green2:    #1aab52;
+  --red:       #ff4f6a;
+  --yellow:    #ffc84a;
+  --radius:    18px;
+  --font:      'Plus Jakarta Sans', sans-serif;
+  /* safe areas for notch phones */
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+}
+
+html, body {
+  height: 100%; width: 100%;
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ============ SCREENS ============ */
+.screen { display:none; flex-direction:column; height:100%; width:100%; position:absolute; top:0; left:0; }
+.screen.active { display:flex; }
+
+/* ============ SPLASH / HOME ============ */
+#s-home {
+  align-items: center;
+  justify-content: flex-end;
+  padding-bottom: calc(40px + var(--sab));
+  background: var(--bg);
+}
+.home-bg {
+  position: absolute; inset: 0; z-index: 0;
+  background:
+    radial-gradient(ellipse 60% 40% at 50% 20%, rgba(26,110,245,0.12) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 30% at 80% 70%, rgba(37,211,102,0.07) 0%, transparent 60%);
+}
+.home-inner { position:relative; z-index:1; width:100%; padding:0 28px; }
+
+.app-logo {
+  width: 72px; height: 72px; border-radius: 24px;
+  background: linear-gradient(135deg, #1a6ef5 0%, #25d366 100%);
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 20px;
+  box-shadow: 0 0 40px rgba(26,110,245,0.3), 0 0 80px rgba(26,110,245,0.1);
+  font-size: 32px;
+}
+.app-title {
+  font-size: 30px; font-weight: 800; text-align: center; color: #fff;
+  letter-spacing: -0.5px; margin-bottom: 6px;
+}
+.app-sub {
+  font-size: 13px; color: var(--muted); text-align: center;
+  line-height: 1.6; margin-bottom: 36px;
+}
+
+.btn-green {
+  width: 100%; padding: 17px; border-radius: 16px; border: none;
+  background: linear-gradient(135deg, var(--green) 0%, var(--green2) 100%);
+  color: #fff; font-family: var(--font); font-size: 16px; font-weight: 700;
+  cursor: pointer; margin-bottom: 12px;
+  box-shadow: 0 8px 32px rgba(37,211,102,0.3);
+  transition: transform 0.15s, box-shadow 0.15s;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+}
+.btn-green:active { transform: scale(0.97); }
+
+.btn-outline {
+  width: 100%; padding: 17px; border-radius: 16px;
+  border: 1.5px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.04);
+  color: var(--text); font-family: var(--font); font-size: 16px; font-weight: 600;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  transition: border-color 0.2s, background 0.2s;
+}
+.btn-outline:active { background: rgba(255,255,255,0.08); }
+
+/* ============ SETUP SCREENS ============ */
+#s-create, #s-join {
+  background: var(--bg);
+  padding-top: var(--sat);
+}
+
+.nav-bar {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.nav-back {
+  width: 38px; height: 38px; border-radius: 12px;
+  background: var(--surface); border: none;
+  color: var(--text); cursor: pointer; font-size: 18px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.nav-title { font-size: 17px; font-weight: 700; color: #fff; }
+
+.setup-body { flex: 1; padding: 24px 20px; overflow-y: auto; }
+
+.field-label {
+  font-size: 11px; font-weight: 700; color: var(--muted);
+  letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 8px; display: block;
+}
+.field-input {
+  width: 100%; padding: 15px 16px; border-radius: 14px;
+  border: 1.5px solid var(--border); background: var(--surface);
+  color: #fff; font-family: var(--font); font-size: 15px; outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s; margin-bottom: 18px;
+  -webkit-appearance: none;
+}
+.field-input:focus {
+  border-color: var(--me-bg);
+  box-shadow: 0 0 0 3px rgba(26,110,245,0.15);
+}
+.field-code {
+  font-size: 30px; font-weight: 800; letter-spacing: 10px;
+  text-align: center; text-transform: uppercase;
+}
+
+/* code display box */
+.code-display {
+  background: var(--surface);
+  border: 1.5px solid rgba(26,110,245,0.25);
+  border-radius: 18px; padding: 20px;
+  text-align: center; margin-bottom: 16px;
+  position: relative;
+}
+.code-label { font-size: 11px; color: var(--muted); font-weight: 600; letter-spacing: 0.5px; margin-bottom: 8px; }
+.code-value {
+  font-size: 38px; font-weight: 800; letter-spacing: 14px;
+  color: #fff; font-variant-numeric: tabular-nums;
+  text-indent: 14px; /* compensate letter-spacing */
+}
+.code-copy-btn {
+  margin-top: 14px; width: 100%; padding: 13px; border-radius: 12px; border: none;
+  background: rgba(26,110,245,0.15); border: 1px solid rgba(26,110,245,0.3);
+  color: #6ea8ff; font-family: var(--font); font-size: 14px; font-weight: 700;
+  cursor: pointer; transition: background 0.2s;
+}
+.code-copy-btn:active { background: rgba(26,110,245,0.3); }
+
+/* status pill */
+.status-pill {
+  display: flex; align-items: center; gap: 9px;
+  padding: 13px 16px; border-radius: 13px; margin-bottom: 16px;
+  font-size: 13px; font-weight: 600;
+}
+.s-wait { background: rgba(255,200,74,0.08); border: 1px solid rgba(255,200,74,0.2); color: var(--yellow); }
+.s-ok   { background: rgba(37,211,102,0.08); border: 1px solid rgba(37,211,102,0.2); color: var(--green); }
+.s-err  { background: rgba(255,79,106,0.08);  border: 1px solid rgba(255,79,106,0.2);  color: var(--red); }
+.pill-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.25} }
+.blinking { animation: blink 1.2s infinite; }
+
+/* ============ CHAT ============ */
+#s-chat { background: var(--bg); }
+
+/* chat header */
+.chat-header {
+  display: flex; align-items: center; gap: 12px;
+  padding: calc(var(--sat) + 10px) 16px 12px;
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  box-shadow: 0 2px 20px rgba(0,0,0,0.3);
+}
+.chat-avatar {
+  width: 42px; height: 42px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--me-bg), #25d366);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(26,110,245,0.3);
+}
+.chat-header-info { flex: 1; min-width: 0; }
+.chat-peer-name {
+  font-size: 16px; font-weight: 700; color: #fff;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.chat-status-line { font-size: 12px; color: var(--green); font-weight: 500; margin-top: 1px; }
+.chat-status-line.offline { color: var(--muted); }
+.header-end-btn {
+  background: rgba(255,79,106,0.1); border: 1px solid rgba(255,79,106,0.2);
+  color: var(--red); border-radius: 10px; padding: 8px 12px;
+  font-size: 12px; font-weight: 700; cursor: pointer; font-family: var(--font);
+  flex-shrink: 0;
+}
+
+/* wallpaper */
+.chat-wallpaper {
+  flex: 1; overflow: hidden; position: relative;
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(circle at 15% 85%, rgba(26,110,245,0.04) 0%, transparent 50%),
+    radial-gradient(circle at 85% 15%, rgba(37,211,102,0.03) 0%, transparent 50%);
+}
+
+/* messages scroll */
+.messages-scroll {
+  height: 100%; overflow-y: auto; overflow-x: hidden;
+  padding: 12px 12px 8px;
+  display: flex; flex-direction: column;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+.messages-scroll::-webkit-scrollbar { display: none; }
+
+/* date chip */
+.date-chip {
+  align-self: center;
+  background: rgba(255,255,255,0.07); border: 1px solid var(--border);
+  border-radius: 10px; padding: 4px 14px;
+  font-size: 11px; color: var(--muted); margin: 8px 0;
+  font-weight: 600; letter-spacing: 0.3px;
+}
+
+/* bubble */
+.bubble-row {
+  display: flex; align-items: flex-end; gap: 6px;
+  margin-bottom: 3px;
+}
+.bubble-row.mine { flex-direction: row-reverse; }
+.bubble-row.theirs { flex-direction: row; }
+
+.bubble {
+  max-width: 78%; min-width: 60px;
+  padding: 9px 13px 6px;
+  border-radius: 18px;
+  font-size: 14.5px; line-height: 1.45;
+  word-break: break-word; word-wrap: break-word;
+  position: relative;
+  animation: popIn 0.2s cubic-bezier(0.34,1.56,0.64,1);
+}
+@keyframes popIn {
+  from { opacity:0; transform: scale(0.85) translateY(6px); }
+  to   { opacity:1; transform: scale(1) translateY(0); }
+}
+
+.bubble.mine {
+  background: var(--me-bg);
+  color: #fff;
+  border-bottom-right-radius: 5px;
+  box-shadow: 0 2px 12px rgba(26,110,245,0.35);
+}
+.bubble.theirs {
+  background: var(--them-bg);
+  color: var(--text);
+  border-bottom-left-radius: 5px;
+  border: 1px solid rgba(255,255,255,0.05);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.bubble-meta {
+  display: flex; align-items: center; justify-content: flex-end;
+  gap: 4px; margin-top: 3px;
+}
+.bubble-time {
+  font-size: 10px; opacity: 0.55; font-weight: 500;
+}
+.bubble-tick {
+  font-size: 11px; opacity: 0.7;
+}
+
+/* system message */
+.sys-bubble {
+  align-self: center;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--border);
+  border-radius: 12px; padding: 6px 16px;
+  font-size: 12px; color: var(--muted); margin: 4px 0;
+  text-align: center; max-width: 85%;
+  animation: fadeIn 0.25s ease;
+}
+@keyframes fadeIn { from{opacity:0;} to{opacity:1;} }
+
+/* typing indicator */
+.typing-indicator {
+  display: none; align-items: center; gap: 4px;
+  padding: 10px 14px; background: var(--them-bg);
+  border-radius: 18px; border-bottom-left-radius: 5px;
+  width: fit-content; margin-bottom: 4px;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+.typing-indicator.show { display: flex; }
+.typing-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--muted);
+}
+.typing-dot:nth-child(1) { animation: typingBounce 1s infinite 0s; }
+.typing-dot:nth-child(2) { animation: typingBounce 1s infinite 0.15s; }
+.typing-dot:nth-child(3) { animation: typingBounce 1s infinite 0.3s; }
+@keyframes typingBounce {
+  0%,60%,100% { transform: translateY(0); opacity:0.4; }
+  30% { transform: translateY(-5px); opacity:1; }
+}
+
+/* ============ INPUT BAR ============ */
+.input-bar {
+  display: flex; align-items: flex-end; gap: 8px;
+  padding: 8px 10px calc(8px + var(--sab));
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.input-wrap {
+  flex: 1; display: flex; align-items: center;
+  background: var(--surface2);
+  border-radius: 24px; border: 1.5px solid var(--border);
+  padding: 0 14px; min-height: 46px;
+  transition: border-color 0.2s;
+}
+.input-wrap:focus-within {
+  border-color: rgba(26,110,245,0.35);
+}
+.chat-input {
+  flex: 1; background: none; border: none; outline: none;
+  color: var(--text); font-family: var(--font); font-size: 15px;
+  padding: 12px 0; resize: none; max-height: 100px;
+  line-height: 1.4;
+}
+.chat-input::placeholder { color: var(--dim); }
+
+.send-btn {
+  width: 46px; height: 46px; border-radius: 50%; border: none;
+  background: linear-gradient(135deg, var(--green) 0%, var(--green2) 100%);
+  color: #fff; cursor: pointer; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 16px rgba(37,211,102,0.35);
+  transition: transform 0.15s, box-shadow 0.15s, opacity 0.2s;
+}
+.send-btn:active { transform: scale(0.92); }
+.send-btn:disabled { opacity: 0.3; cursor: not-allowed; box-shadow: none; }
+.send-btn svg { width: 20px; height: 20px; }
+
+/* ============ UTIL ============ */
+@keyframes slideUp {
+  from { opacity:0; transform: translateY(30px); }
+  to   { opacity:1; transform: translateY(0); }
+}
+.slide-up { animation: slideUp 0.35s cubic-bezier(0.34,1.2,0.64,1); }
+</style>
+</head>
+<body>
+
+<!-- ==================== HOME ==================== -->
+<div id="s-home" class="screen active">
+  <div class="home-bg"></div>
+  <div class="home-inner slide-up">
+    <div class="app-logo">🕶️</div>
+    <div class="app-title">ShadowTalk</div>
+    <p class="app-sub">Zero-server encrypted P2P chat.<br>Koi account nahi. Koi log nahi. Bas chat.</p>
+    <button class="btn-green" onclick="go('s-create')">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Naya Room Banao
+    </button>
+    <button class="btn-outline" onclick="go('s-join')">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+      Room Join Karo
+    </button>
+  </div>
+</div>
+
+<!-- ==================== CREATE ==================== -->
+<div id="s-create" class="screen">
+  <div class="nav-bar">
+    <button class="nav-back" onclick="goHome()">←</button>
+    <span class="nav-title">Room Banao</span>
+  </div>
+  <div class="setup-body">
+
+    <div id="cr-step1">
+      <label class="field-label">Tumhara Naam</label>
+      <input class="field-input" id="cr-name" placeholder="Apna naam likho..." maxlength="20" autocomplete="off">
+      <button class="btn-green" onclick="doCreate()" style="margin-top:4px;">
+        Room Banao ✨
+      </button>
+    </div>
+
+    <div id="cr-step2" style="display:none;">
+      <div class="code-display">
+        <div class="code-label">YE CODE DOST KO BHEJO</div>
+        <div class="code-value" id="cr-code">----</div>
+        <button class="code-copy-btn" id="cr-copybtn" onclick="copyCode()">
+          📋 &nbsp;Code Copy Karo
+        </button>
+      </div>
+      <div class="status-pill s-wait" id="cr-status">
+        <div class="pill-dot blinking"></div>
+        <span id="cr-status-txt">Dost ka intezaar kar raha hoon...</span>
+      </div>
+      <p style="font-size:12px;color:var(--muted);line-height:1.6;text-align:center;padding:0 8px;">
+        Dost code enter karega, connection apne aap ho jayega ⚡
+      </p>
+    </div>
+
+  </div>
+</div>
+
+<!-- ==================== JOIN ==================== -->
+<div id="s-join" class="screen">
+  <div class="nav-bar">
+    <button class="nav-back" onclick="goHome()">←</button>
+    <span class="nav-title">Room Join Karo</span>
+  </div>
+  <div class="setup-body">
+
+    <label class="field-label">Tumhara Naam</label>
+    <input class="field-input" id="jn-name" placeholder="Apna naam likho..." maxlength="20" autocomplete="off">
+
+    <label class="field-label">Room Code</label>
+    <input class="field-input field-code" id="jn-code" placeholder="XXXX" maxlength="4" autocomplete="off" oninput="this.value=this.value.toUpperCase()">
+
+    <div class="status-pill s-err" id="jn-err" style="display:none;">
+      <div class="pill-dot"></div>
+      <span id="jn-err-txt">Room nahi mila! Code dobara check karo.</span>
+    </div>
+
+    <button class="btn-green" id="jn-btn" onclick="doJoin()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      Join Karo
+    </button>
+
+  </div>
+</div>
+
+<!-- ==================== CHAT ==================== -->
+<div id="s-chat" class="screen">
+  <div class="chat-header">
+    <div class="chat-avatar" id="chat-avatar">🧑</div>
+    <div class="chat-header-info">
+      <div class="chat-peer-name" id="chat-peer-name">...</div>
+      <div class="chat-status-line" id="chat-status-line">online</div>
+    </div>
+    <button class="header-end-btn" onclick="endChat()">✕ End</button>
+  </div>
+
+  <div class="chat-wallpaper">
+    <div class="messages-scroll" id="messages">
+      <div class="date-chip">Aaj</div>
+    </div>
+  </div>
+
+  <div class="input-bar">
+    <div class="input-wrap">
+      <textarea class="chat-input" id="chat-input" rows="1"
+        placeholder="Message..."
+        oninput="autoResize(this)"
+        onkeydown="handleKey(event)"></textarea>
+    </div>
+    <button class="send-btn" id="send-btn" onclick="sendMsg()" disabled>
+      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="22" y1="2" x2="11" y2="13"/>
+        <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+      </svg>
+    </button>
+  </div>
+</div>
+
+<script>
+// ======================== STATE ========================
+let peer, conn, myName = '', peerName = '', myCode = '', isHost = false;
+
+// ======================== UI HELPERS ========================
+function go(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function goHome() {
+  cleanup();
+  go('s-home');
+}
+
+function now() {
+  return new Date().toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit', hour12:true});
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 100) + 'px';
+}
+
+function scrollBottom() {
+  const m = document.getElementById('messages');
+  setTimeout(() => m.scrollTop = m.scrollHeight, 50);
+}
+
+// ======================== ADD MESSAGES ========================
+function addBubble(text, type) { // type: 'mine' | 'theirs' | 'sys'
+  const m = document.getElementById('messages');
+
+  if (type === 'sys') {
+    const el = document.createElement('div');
+    el.className = 'sys-bubble';
+    el.textContent = text;
+    m.appendChild(el);
+    scrollBottom();
+    return;
+  }
+
+  const row = document.createElement('div');
+  row.className = 'bubble-row ' + type;
+
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble ' + type;
+  bubble.innerHTML = `
+    ${escHtml(text)}
+    <div class="bubble-meta">
+      <span class="bubble-time">${now()}</span>
+      ${type === 'mine' ? '<span class="bubble-tick">✓✓</span>' : ''}
+    </div>
+  `;
+
+  row.appendChild(bubble);
+  m.appendChild(row);
+  scrollBottom();
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ======================== PEERJS ========================
+function makePeer(id) {
+  const opts = {
+    host: '0.peerjs.com', port: 443, path: '/', secure: true, debug: 0
+  };
+  return id ? new Peer(id, opts) : new Peer(opts);
+}
+
+function randCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  return Array.from({length:4}, () => chars[Math.floor(Math.random()*chars.length)]).join('');
+}
+
+function copyCode() {
+  const code = myCode.replace('ST-','');
+  navigator.clipboard.writeText(code).catch(() => {
+    const t = document.createElement('textarea');
+    t.value = code; document.body.appendChild(t);
+    t.select(); document.execCommand('copy');
+    document.body.removeChild(t);
+  });
+  const btn = document.getElementById('cr-copybtn');
+  btn.textContent = '✅  Copied!';
+  setTimeout(() => btn.textContent = '📋 \u00A0Code Copy Karo', 2000);
+}
+
+// ---- CREATE ----
+function doCreate() {
+  const name = document.getElementById('cr-name').value.trim();
+  if (!name) { document.getElementById('cr-name').focus(); return; }
+  myName = name; isHost = true;
+  myCode = 'ST-' + randCode();
+
+  document.getElementById('cr-step1').style.display = 'none';
+  document.getElementById('cr-step2').style.display = 'block';
+  document.getElementById('cr-code').textContent = myCode.replace('ST-','');
+
+  peer = makePeer(myCode);
+  peer.on('open', () => {});
+  peer.on('connection', c => { conn = c; setupConn(); });
+  peer.on('error', e => {
+    const s = document.getElementById('cr-status');
+    s.className = 'status-pill s-err';
+    document.getElementById('cr-status-txt').textContent = 'Error: ' + e.type + '. Dobara try karo.';
+  });
+}
+
+// ---- JOIN ----
+function doJoin() {
+  const name = document.getElementById('jn-name').value.trim();
+  const code = document.getElementById('jn-code').value.trim().toUpperCase();
+  if (!name || code.length < 4) return;
+  myName = name; isHost = false;
+
+  document.getElementById('jn-btn').disabled = true;
+  document.getElementById('jn-err').style.display = 'none';
+
+  peer = makePeer();
+  peer.on('open', () => {
+    conn = peer.connect('ST-' + code, {reliable: true});
+    setupConn();
+  });
+  peer.on('error', e => {
+    document.getElementById('jn-err').style.display = 'flex';
+    document.getElementById('jn-err-txt').textContent =
+      e.type === 'peer-unavailable'
+        ? 'Room nahi mila! Code check karo.'
+        : 'Error: ' + e.type;
+    document.getElementById('jn-btn').disabled = false;
+  });
+}
+
+// ---- SETUP CONNECTION ----
+function setupConn() {
+  conn.on('open', () => {
+    conn.send(JSON.stringify({type:'hello', name: myName}));
+    // will open chat once we get hello back (or for host, show chat immediately)
+    if (isHost) {
+      openChat('...');
+    }
+  });
+
+  conn.on('data', raw => {
+    try {
+      const d = JSON.parse(raw);
+      if (d.type === 'hello') {
+        peerName = d.name;
+        if (!isHost) openChat(peerName);
+        else {
+          document.getElementById('chat-peer-name').textContent = peerName;
+          document.getElementById('chat-avatar').textContent = peerName[0].toUpperCase();
+          addBubble(peerName + ' aa gaya! Ab seedha baat karo 🎉', 'sys');
+        }
+      } else if (d.type === 'msg') {
+        addBubble(d.text, 'theirs');
+      } else if (d.type === 'typing') {
+        // typing indicator
+      } else if (d.type === 'bye') {
+        addBubble(peerName + ' chala gaya 👋', 'sys');
+        document.getElementById('chat-status-line').textContent = 'offline';
+        document.getElementById('chat-status-line').className = 'chat-status-line offline';
+        document.getElementById('send-btn').disabled = true;
+      }
+    } catch(_) { addBubble(raw, 'theirs'); }
+  });
+
+  conn.on('close', () => {
+    document.getElementById('chat-status-line').textContent = 'offline';
+    document.getElementById('chat-status-line').className = 'chat-status-line offline';
+    document.getElementById('send-btn').disabled = true;
+    addBubble('Connection band ho gaya.', 'sys');
+  });
+
+  conn.on('error', () => addBubble('Connection mein problem.', 'sys'));
+}
+
+function openChat(name) {
+  peerName = name;
+  document.getElementById('chat-peer-name').textContent = name;
+  document.getElementById('chat-avatar').textContent = name !== '...' ? name[0].toUpperCase() : '🧑';
+  document.getElementById('chat-status-line').textContent = 'online';
+  document.getElementById('chat-status-line').className = 'chat-status-line';
+  document.getElementById('send-btn').disabled = false;
+  go('s-chat');
+  document.getElementById('chat-input').focus();
+  if (isHost) addBubble('Jud gaye! Chat shuru karo 🔥', 'sys');
+}
+
+// ======================== SEND ========================
+function sendMsg() {
+  const inp = document.getElementById('chat-input');
+  const text = inp.value.trim();
+  if (!text || !conn || !conn.open) return;
+  conn.send(JSON.stringify({type:'msg', text}));
+  addBubble(text, 'mine');
+  inp.value = ''; inp.style.height = 'auto'; inp.focus();
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMsg();
+  }
+}
+
+// ======================== END / CLEANUP ========================
+function endChat() {
+  if (conn && conn.open) conn.send(JSON.stringify({type:'bye'}));
+  cleanup(); goHome();
+}
+
+function cleanup() {
+  try { if(conn) conn.close(); } catch(_){}
+  try { if(peer) peer.destroy(); } catch(_){}
+  conn = null; peer = null; myName = ''; peerName = ''; myCode = ''; isHost = false;
+  // reset forms
+  ['cr-name','jn-name','jn-code'].forEach(id => {
+    const el = document.getElementById(id); if(el) el.value = '';
+  });
+  document.getElementById('cr-step1').style.display = 'block';
+  document.getElementById('cr-step2').style.display = 'none';
+  document.getElementById('cr-status').className = 'status-pill s-wait';
+  document.getElementById('cr-status-txt').textContent = 'Dost ka intezaar kar raha hoon...';
+  document.getElementById('jn-btn').disabled = false;
+  document.getElementById('jn-err').style.display = 'none';
+  document.getElementById('send-btn').disabled = true;
+  document.getElementById('chat-status-line').textContent = 'online';
+  document.getElementById('chat-status-line').className = 'chat-status-line';
+  // clear messages except date chip
+  const m = document.getElementById('messages');
+  m.innerHTML = '<div class="date-chip">Aaj</div>';
+}
+</script>
+</body>
+</html>
